@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS
+.DS_Store
+
+# Large raw / generated data
+data_message/data.jsonl
+data_message/analysis_data.jsonl
+data_message/predicts.xlsx
+data_message/store_keys/
+data_message/predicts/
+data_message/results/
+
+# Flask runtime artifacts
+flask/__pycache__/
+flask/results/
+
+# Next.js workspace kept local
+flask/my-app/
+
+# MixF artifacts
+MixF/checkpoints/
+MixF/logs/
+MixF/results/
+MixF/wandb/
+MixF/predicts/
+MixF/result.txt
+MixF/dataset/arxiv-metadata-oai-snapshot.json
+
+# Misc
+*.deb

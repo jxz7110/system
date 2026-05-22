@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- 引入 marked.js -->
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #chartContainer {
+            width: 100vh;
+            height: 40vh;
+            display: flex;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+            width: 20vw;
+            margin: 0 auto;
+            text-align: center;
+            margin-top: 20px;
+            /* 增加顶部间距 */
+        }
+
+        .dropdown-content {
+            display: block;
+            position: relative;
+            margin-top: 20px;
+            background-color: white;
+            border: 1px solid #ccc;
+            z-index: 1;
+            max-height: 320px;
+            overflow-y: auto;
+            padding: 10px;
+            bottom: 0%;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .dropdown-content label {
+            padding: 5px 0;
+            display: block;
+            text-align: left;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 文本框样式 */
+        #outputText {
+            width: 200px;
+            height: 30px;
+            margin-bottom: 5px;
+        }
+
+        /* 其他元素的样式 */
+        h1 {
+            text-align: center;
+            margin-top: 20px;
+            /* 增加标题上方间距 */
+        }
+
+        .output-container {
+            text-align: center;
+            margin-top: 20px;
+            /* 增加输出框的上方间距 */
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>科技文献趋势预测展示</h1>
+
+    <!-- 自定义选择框 -->
+    <div style="display: flex; justify-content: center; ">
+        <div class="dropdown " >
+            <text style="background-color: white; padding: 0px; text-align: center;">选择学科方向</text>
+            <div class="dropdown-content" id="dataSelector" style="border: 2px solid #000;">
+                {% for option in data_options %}
+                <label>
+                    <input type="checkbox" class="dataCheckbox" value="{{ option }}" onchange="updateSelectedOptions()">
+                    {{ option }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 可视化页面 -->
+        <div id="chartContainer" style="border: 1px solid #000;">
+            <canvas id="lineChart"></canvas>
+        </div>
+    </div>
+    <div  style="display: flex; justify-content: center; width:100vw; max-height:20vw; margin-top: 5vw;">
+        <canvas id="myPaperPieChart"  style="max-width: 20vw;  max-height: 20vw; margin-right: 10vw;"></canvas>
+        <canvas id="myAuthorPieChart"  style="max-width: 20vw; max-height: 20vw; margin-left: 10vw;"></canvas>
+    </div>
+
+    <div style="text-align: center;">
+        <div style="text-align: center;">
+            <input type="text" id="outputText" list="optionsList" placeholder="输入要分析的学科" >
+            <datalist id="optionsList">
+                {% for option in show_options %}
+                    <option value="{{ option }}">{{ option }}</option>
+                {% endfor %}
+            </datalist>
+            <button id="displayOutput">分析学科</button>
+            <div id="outputDisplay" style="max-height: 75vh; overflow:auto; text-align: left; margin-left: 15%; margin-right: 15%;" ></div>
+        </div>
+    </div>
+
+    <div style="text-align: center;">
+        <div style="text-align: center;">
+            <input type="text" id="keyoutputText" placeholder="输入要分析的关键词进行预测">
+            <button id="displayKeyOutput">分析关键词</button>
+            <div id="outputKeyDisplay" style="max-height: 75vh; overflow:auto; text-align: left; margin-left: 15%; margin-right: 15%;">
+                <canvas id="keylineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: center;">
+        <div style="text-align: center;">
+            <input type="text" id="arxivPaperOutputText" placeholder="输入关键词得到最新论文" >
+            <button id="arxivPaperdisplayOutput">获取论文</button>
+            <div id="arxivPaperOutputDisplay" style="max-height: 75vh; overflow:auto; text-align: left; margin-left: 15%; margin-right: 15%;" ></div>
+        </div>
+    </div>
+
+
+    <script>
+        const line = document.getElementById('lineChart').getContext('2d');
+        const lineChart = new Chart(line, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        const keyline = document.getElementById('keylineChart').getContext('2d');
+        const keylineChart = new Chart(keyline, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        const paperPie = document.getElementById('myPaperPieChart').getContext('2d');
+        const PaperPieChart = new Chart(paperPie, {
+            type: 'pie',
+            data: {},
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                }
+            }
+        });
+        const authorPie = document.getElementById('myAuthorPieChart').getContext('2d');
+        const AuthorPieChart = new Chart(authorPie, {
+            type: 'pie',
+            data: {},
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                }
+            }
+        });
+
+        function updateChart() {
+            lineChart.data.datasets = []; // 清空当前数据集
+            PaperPieChart.data={
+                labels: [], // 这里是标签
+                datasets: [{
+                    label: [],
+                    data: [], // 这里是对应的数值
+                    backgroundColor: [],
+                }]
+            };
+            AuthorPieChart.data={
+                labels: [], // 这里是标签
+                datasets: [{
+                    label: [],
+                    data: [], // 这里是对应的数值
+                    backgroundColor: [],
+                }]
+            };
+            // 获取选中的复选框
+            const checkedOptions = $('.dataCheckbox:checked').map(function () {
+                return this.value;
+            }).get();
+
+
+            // 遍历每个选中的选项并获取其数据
+            checkedOptions.forEach(option => {
+                $.ajax({
+                    type: 'POST',
+                    url: '/get_data',
+                    async: false, // 确保同步请求以更新图表
+                    contentType: 'application/json',
+                    data: JSON.stringify({ option: option }),
+                    success: function (data) {
+                        lineChart.data.labels = data.labels; // 根据实际数据情况修改
+                        lineChart.data.datasets.push({
+                            label: option,
+                            data: data.data,
+                            borderWidth: 1,
+                            fill: false,
+                            pointRadius: 2,
+                            segment: { // 这里使用 segment 属性
+                                borderColor: function (context) {
+                                    console.log(data);
+                                    const index = context.p0DataIndex; // 当前线段的起始索引
+                                    if (index > data.labels.length - 6) {
+                                        return 'rgba(255, 99, 132, 1)'; // 预测为红色
+                                    } else {
+                                        return 'rgba(75, 192, 192, 1)'; // 其余为青色
+                                    }
+                                },
+                            },
+                        });
+                    }
+                });
+                if(option.includes('paper')){
+                    $.ajax({
+                        type: 'POST',
+                        url: '/get_data_sum',
+                        async: false, // 确保同步请求以更新图表
+                        contentType: 'application/json',
+                        data: JSON.stringify({ option: option}),
+                        success: function (data) {
+                            // console.log(data)
+                            PaperPieChart.data.labels.push(data.option);
+                            PaperPieChart.data.datasets[0].data.push(data.sum);
+                            PaperPieChart.data.datasets[0].backgroundColor.push(randomColor());
+                        },
+                    });
+                }
+                if(option.includes('author')){
+                    $.ajax({
+                        type: 'POST',
+                        url: '/get_data_sum',
+                        async: false, // 确保同步请求以更新图表
+                        contentType: 'application/json',
+                        data: JSON.stringify({ option: option}),
+                        success: function (data) {
+                            // console.log(data)
+                            AuthorPieChart.data.labels.push(data.option);
+                            AuthorPieChart.data.datasets[0].data.push(data.sum);
+                            AuthorPieChart.data.datasets[0].backgroundColor.push(randomColor());
+                        },
+                    });
+                }
+                
+            });
+            AuthorPieChart.update();
+            PaperPieChart.update();
+            lineChart.update(); // 更新图表
+        }
+
+        function randomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // 更新已选择的选项列表
+        function updateSelectedOptions() {
+            updateChart(); // 更新图表
+        }
+
+
+        // 处理文本框按钮点击
+        $('#displayOutput').click(() => {
+            const outputText = $('#outputText').val();
+            $.ajax({
+                type: 'POST',
+                url: '/get_Analysis_text',
+                async: false,
+                contentType: 'application/json',
+                data: JSON.stringify({option: outputText}),
+                success: function(data){
+                    analysisResult = data['text']
+                    const renderedHtml = marked.parse(analysisResult);
+                    // $('#outputDisplay').text(renderedHtml);
+                    document.getElementById('outputDisplay').innerHTML = `<div>${renderedHtml}</div>`;
+                }
+
+            })
+        });
+
+        // 处理文本框按钮点击
+        $('#arxivPaperdisplayOutput').click(() => {
+            const outputText = $('#arxivPaperOutputText').val();
+            $.ajax({
+                type: 'POST',
+                url: '/arxiv_api_papers',
+                async: false,
+                contentType: 'application/json',
+                data: JSON.stringify({key: outputText}),
+                success: function(data){
+                    analysisResult = data['papers']
+                    const renderedHtml = marked.parse(analysisResult);
+                    // $('#outputDisplay').text(renderedHtml);
+                    document.getElementById('arxivPaperOutputDisplay').innerHTML = `<div>${renderedHtml}</div>`;
+                }
+
+            })
+        });
+
+        $('#displayKeyOutput').click(() => {
+            keylineChart.data.datasets = []; // 清空当前数据集
+            const keyoutputText = $('#keyoutputText').val();
+            $.ajax({
+                type: 'POST',
+                url: '/get_key_text',
+                async: false,
+                contentType: 'application/json',
+                data: JSON.stringify({key: keyoutputText}),
+                success: function(data){
+                    keylineChart.data.labels = data.labels; // 根据实际数据情况修改
+                    keylineChart.data.datasets.push({
+                        label: keyoutputText,
+                        data: data.data,
+                        borderWidth: 1,
+                        fill: false,
+                        pointRadius: 2,
+                        segment: { // 这里使用 segment 属性
+                            borderColor: function (context) {
+                                console.log(data);
+                                const index = context.p0DataIndex; // 当前线段的起始索引
+                                if (index > data.labels.length - 6) {
+                                    return 'rgba(255, 99, 132, 1)'; // 预测为红色
+                                } else {
+                                    return 'rgba(75, 192, 192, 1)'; // 其余为青色
+                                }
+                            },
+                        },
+                    });
+                    
+                }
+
+            })
+            keylineChart.update();
+        }) ;
+        // 页面加载时安全可触发一次更新（可选）
+        
+        
+        
+        $(document).ready(() => {
+            // updateChart(); // 根据需要可以在页面加载时自动更新图表
+        });
+    </script>
+
+</body>
+
+</html>
