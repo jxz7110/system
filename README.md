@@ -4,7 +4,8 @@
 
 - `data_message/`：数据清洗、关键词检索、学科分析
 - `MixF/`：时序预测模型与预测脚本
-- `flask/`：后端接口与可视化页面
+- `flask/`：Flask 后端接口
+- `flask/my-app/`：Next.js 前端页面
 
 ## 目录说明
 
@@ -41,13 +42,33 @@
 
 主要功能：
 
-- 提供网页接口
-- 展示学科趋势、关键词分析和论文信息
+- 提供数据接口
+- 为前端返回学科趋势、关键词分析和论文信息
 
 关键文件：
 
 - `flask/main.py`
-- `flask/templates/index.html`
+
+默认后端地址：
+
+- `http://127.0.0.1:3636`
+
+### 4. flask/my-app
+
+主要功能：
+
+- 提供 Next.js 前端页面
+- 展示学科趋势、关键词分析和论文信息
+
+关键文件：
+
+- `flask/my-app/src/app/(subject)/page.tsx`
+- `flask/my-app/src/app/key-word/page.tsx`
+- `flask/my-app/package.json`
+
+默认前端地址：
+
+- `http://127.0.0.1:3000`
 
 ## 运行流程
 
@@ -103,20 +124,45 @@ export GPTGOD_API_KEY=your_api_key
 python data_analysis.py
 ```
 
-### 6. 启动 Flask 页面
+### 6. 启动 Web 服务
+
+项目需要同时启动两个程序：
+
+- Flask 后端：`flask/main.py`
+- Next.js 前端：`flask/my-app` 的 `npm run dev`
+
+推荐在项目根目录执行：
+
+```bash
+bash start.sh
+```
+
+启动后访问：
+
+- 前端页面：`http://127.0.0.1:3000`
+- 后端接口：`http://127.0.0.1:3636`
+
+`start.sh` 会在后台启动 Flask 后端，然后在前台启动 Next.js 前端。停止脚本时会自动关闭本次启动的 Flask 后端进程。
+
+如果需要手动启动，可以分别打开两个终端执行：
+
+终端 1：
 
 ```bash
 cd flask
 python main.py
 ```
 
-默认访问地址：
+终端 2：
 
-- `http://127.0.0.1:3636`
+```bash
+cd flask/my-app
+npm run dev
+```
 
 ## 一键流程
 
-项目中提供了一个简单流程脚本：
+项目中提供了 Web 服务启动脚本：
 
 - `start.sh`
 
@@ -125,6 +171,8 @@ python main.py
 ```bash
 bash start.sh
 ```
+
+如果需要重新生成数据、运行 MixF 预测或生成大模型分析结果，请按上面的“运行流程”第 1-5 步执行。`start.sh` 只负责启动后端和前端服务，不会下载数据、训练模型或调用大模型 API。
 
 ## 依赖说明
 
@@ -143,7 +191,14 @@ bash start.sh
 
 如果需要运行 `MixF`，还需要准备对应的深度学习环境。
 
+前端至少需要：
+
+- Node.js
+- npm
+
+首次启动时，如果 `flask/my-app/node_modules` 不存在，`start.sh` 会自动执行 `npm install`。
+
 ## 说明
 
 - 本仓库默认不上传大体积原始数据、训练日志、checkpoint 和缓存文件。
-- `flask/my-app/` 是本地前端工作目录，不作为当前主线运行入口。
+- `flask/my-app/` 是当前主线前端入口，需要和 Flask 后端一起启动。
